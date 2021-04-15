@@ -1,11 +1,10 @@
 import Game from "./sleek/Game";
-import Graphics, { WHITE, BLACK, GREEN, SHADE } from "./sleek/Graphics";
+import Graphics, { WHITE, BLACK, GREEN, SHADE, GREY } from "./sleek/Graphics";
 import { ZIP } from "./sleek/resources/Resources";
 import SplashPage from "./SplashPage";
-import { CC_LOGO, MIRROR, SPRITES } from "./MirrorResource";
+import { CC_LOGO, MIRROR, SPRITES, TITLE } from "./MirrorResource";
 import TiledMap from "./sleek/tiled/TiledMap";
-import { DOWN_KEY, LEFT_KEY, RIGHT_KEY, SPACE_KEY, UP_KEY } from "./sleek/util/Keys";
-import { threadId } from "node:worker_threads";
+import { DOWN_KEY, ENTER_KEY, ESCAPE_KEY, LEFT_KEY, RIGHT_KEY, SPACE_KEY, UP_KEY } from "./sleek/util/Keys";
 
 const SKY: string = "#48979c";
 
@@ -15,6 +14,24 @@ const TOPS: number = 2;
 
 const FRAMES: number[] = [0, 1, 0, 2];
 const COLLECT: number[] = [12];
+
+const BOX: number = 24;
+const GEM: number = 12;
+const SPIKES: number = 4;
+
+class LevelData {
+  file: string;
+  name: string;
+}
+
+const LEVELS: LevelData[] = [
+  { file: "level1", name: "SPIKEY FALLS" }
+];
+
+const dev: boolean = false; //location.href.indexOf("localhost") >= 0;
+
+const RED_SHADE: string = "rgba(255,0,0,0.5)";
+const GREEN_SHADE: string = "rgba(0,255,0,0.5)";
 
 class Pos {
   x: number;
@@ -31,6 +48,7 @@ export default class MirrorGame extends Game {
   counter: number = 0;
   atSplashPage: boolean = true;
   splashPage: SplashPage;
+  atTitle: boolean = true;
   level: TiledMap;
 
   player: Pos;
@@ -56,6 +74,18 @@ export default class MirrorGame extends Game {
   downMove: number = 0;
   upMove: number = 0;
 
+  currentLevel: number = 0;
+
+  fadeOut: boolean = false;
+  fadeMid: () => void;
+  fadeDone: () => void;
+  fadeIn: boolean = false;
+  fadeAlpha: number = 1;
+
+  atLevelSelect: boolean = false;
+  levelStarting: number = 0;
+  death: string = "";
+  
   constructor() {
     super();
   }
@@ -79,40 +109,81 @@ export default class MirrorGame extends Game {
 
   keyDown(key: string): void {
     if (!this.atSplashPage) {
-      if (key === SPACE_KEY) {
-        if ((this.upMove === 0) && (this.downMove === 0) && (this.leftMove === 0) && (this.rightMove === 0)) {
-          this.switch();
+      if (this.atTitle) {
+        if (key === SPACE_KEY) {
+          this.atTitle = false;
+          this.atLevelSelect = true;
         }
-      }
-      if (key === UP_KEY) {
-        this.up = true;
-        this.facingDown = false;
-      }
-      if (key === DOWN_KEY) {
-        this.down = true;
-        this.facingDown = true;
-      }
-      if (key === LEFT_KEY) {
-        this.left = true;
-        this.flipped = true;
-      }
-      if (key === RIGHT_KEY) {
-        this.right = true;
-        this.flipped = false;
+      } else if (this.atLevelSelect) {
+        if (key === UP_KEY) {
+          this.currentLevel--;
+          if (this.currentLevel < 0) {
+            this.currentLevel = LEVELS.length - 1;
+          }
+        }
+        if (key === DOWN_KEY) {
+          this.currentLevel++;
+          if (this.currentLevel >= LEVELS.length) {
+            this.currentLevel = 0;
+          }
+        }
+        if ((key === SPACE_KEY) || (key === ENTER_KEY)) {
+          this.loadLevel();
+          this.levelStarting = 60;
+          this.atLevelSelect = false;
+        }
+      } else {
+        if (key === ESCAPE_KEY) {
+          this.atTitle = true;
+        }
+        if (key === SPACE_KEY) {
+          if ((this.upMove === 0) && (this.downMove === 0) && (this.leftMove === 0) && (this.rightMove === 0)) {
+            this.switch();
+          }
+        }
+        if (key === UP_KEY) {
+          this.up = true;
+          this.facingDown = false;
+        }
+        if (key === DOWN_KEY) {
+          this.down = true;
+          this.facingDown = true;
+        }
+        if (key === LEFT_KEY) {
+          this.left = true;
+          this.flipped = true;
+        }
+        if (key === RIGHT_KEY) {
+          this.right = true;
+          this.flipped = false;
+        }
       }
     }
   }
 
   switch(): void {
-    const px: number = this.player.x;
-    const py: number = this.player.y;
-    const mx: number = this.mirrorPlayer.x;
-    const my: number = this.mirrorPlayer.y;
-
-    const mid: number = 80;
-
-    this.player = new Pos(mx, (mid - my) + mid);
-    this.mirrorPlayer = new Pos(px, mid - (py - mid));
+    this.fadeMid = () => {
+      const px: number = this.player.x;
+      const py: number = this.player.y;
+      const mx: number = this.mirrorPlayer.x;
+      const my: number = this.mirrorPlayer.y;
+  
+      const mid: number = 80;
+  
+      this.player = new Pos(mx, (mid - my) + mid);
+      this.mirrorPlayer = new Pos(px, mid - (py - mid));
+    };
+    this.fadeDone = () => {
+      let px: number = Math.floor((this.player.x) / 10);
+      let py: number = Math.floor((this.player.y + 4)/ 8);
+      let mx: number = Math.floor(this.mirrorPlayer.x / 10);
+      let my: number = Math.floor(this.mirrorPlayer.y / 8);
+      
+      if ((this.level.get(OBJECTS, px, py) !== 0) || (this.level.get(OBJECTS, mx, my) !== 0)) {
+        this.switch();
+      }
+    }
+    this.fadeOut = true;
   }
 
   onResourcesLoaded(): void {
@@ -123,10 +194,11 @@ export default class MirrorGame extends Game {
     })
     this.atSplashPage = true;
 
-    this.loadLevel("test");
+    this.loadLevel();
   }
 
-  loadLevel(name: string): void {
+  loadLevel(): void {
+    const name: string = dev ? "test" : LEVELS[this.currentLevel].file;
     const mapData: any = JSON.parse(JSON.stringify(ZIP.getJson("maps/" + name + ".json")));
     this.level = new TiledMap(mapData);
 
@@ -144,9 +216,18 @@ export default class MirrorGame extends Game {
     this.level.setLayerRenderOffset(TOPS, 0, -1);
     this.dead = false;
     this.win = false;
+    this.leftMove = 0;
+    this.rightMove = 0;
+    this.upMove = 0;
+    this.downMove = 0;
+    this.left = false;
+    this.right = false;
+    this.up = false;
+    this.down = false;
   }
 
-  die(): void {
+  die(reason: string): void {
+    this.death = reason;
     this.dead = true;
     this.deadTimer = 0;
   }
@@ -154,17 +235,43 @@ export default class MirrorGame extends Game {
   updateGame(): void {
     this.moving = false;
 
+    if (this.levelStarting > 0) {
+      this.levelStarting--;
+      return;
+    }
+
+    if (this.fadeOut) {
+      this.fadeAlpha -= 0.05;
+      if (this.fadeAlpha < 0) {
+        this.fadeAlpha = 0;
+        this.fadeOut = false;
+        this.fadeMid();
+        this.fadeIn = true;
+      }
+      return;
+    }
+    if (this.fadeIn) {
+      this.fadeAlpha += 0.05;
+      if (this.fadeAlpha > 1) {
+        this.fadeAlpha = 1;
+        this.fadeIn = false;
+        this.fadeDone();
+      }
+    }
+
     if (this.dead) {
       this.deadTimer++;
       if (this.deadTimer > 150) {
-        this.loadLevel("test");
+        this.atTitle = true;
+        this.loadLevel();
       }
       return;
     }
     if (this.win) {
       this.winTimer++;
       if (this.winTimer > 180) {
-        this.loadLevel("test");
+        this.atTitle = true;
+        this.loadLevel();
       }
       return;
     }
@@ -276,18 +383,34 @@ export default class MirrorGame extends Game {
     }
 
     const floor: number = this.level.get(FLOOR, x, y);
-    if (floor === 4) {
+    if (floor === SPIKES) {
       // spikes
-      this.die();
+      this.die("you fell on spikes!");
     }
   }
 
   collect(obj: number): void {
-    if (obj === 12) {
+    if (obj === GEM) {
       // got the gem
       this.win = true;
       this.winTimer = 0;
+      localStorage.setItem("complete." + LEVELS[this.currentLevel].file, "true");
     }
+  }
+
+  boxCanMoveTo(x: number, y: number): boolean {
+    if ((x < 0) || (y < 0) || (x >= this.level.width) || (y >= this.level.height)) {
+      return false;
+    }
+    if (this.level.get(OBJECTS, x, y) !== 0) {
+      return false;
+    }
+    const floor: number = this.level.get(FLOOR, x, y);
+    if (floor === SPIKES) {
+      return false;
+    } 
+
+    return true;
   }
 
   blocked(x: number, y: number): boolean {
@@ -299,7 +422,80 @@ export default class MirrorGame extends Game {
     }
 
     const obj: number = this.level.get(OBJECTS, x, y);
+    if (obj === BOX) {
+      let dx: number = this.leftMove > 0 ? -1 : this.rightMove > 0 ? 1 : 0;
+      let dy: number = this.upMove > 0 ? -1 : this.downMove > 0 ? 1 : 0;
+      let px: number = Math.floor(this.player.x / 10);
+      let py: number = Math.floor(this.player.y / 8);
+      let mx: number = Math.floor(this.mirrorPlayer.x / 10);
+      let my: number = Math.floor(this.mirrorPlayer.y / 8);
+
+      if (y < 10) {
+        dx = -dx;
+        dy = -dy;
+      }
+      // push it through the mirror
+      if (y+dy === 10) {
+        dy *= 2;
+
+        // can't push it through on to the otherplayer
+        if ((x === px) && (y+dy === py)) {
+          console.log("Stopped A");
+          return true;
+        }
+        if ((x === mx) && (y+dy === my + 1)) {
+          return true;
+        }
+        if ((x === mx) && (y+dy === my )) {
+          return true;
+        }
+      }
+
+      if (this.boxCanMoveTo(x+dx, y+dy)) {
+        this.level.set(OBJECTS, x, y, 0);
+        this.level.set(OBJECTS, x+dx, y+dy, BOX);
+        return false;
+      } else {
+        return true;
+      }
+    }
+
     return (obj != 0) && (COLLECT.indexOf(obj) < 0);
+  }
+
+  drawLevelSelect(): void {
+    Graphics.button("Select Level", 10, GREY);
+
+    let i: number = 0;
+    for (const level of LEVELS) {
+      if (this.currentLevel === i) {
+        Graphics.fillRect(30, 30 + (i * 9) - 1, Graphics.width() - 60, 8, GREEN);
+      }
+      Graphics.center(level.name, 30 + (i * 9));
+      if (localStorage.getItem("complete." + level.file)) {
+        SPRITES.draw(Graphics.width() - 28, 30 + (i * 9) - 1, 13);
+      }
+      i++;
+    }
+  }
+
+  drawTitle(): void {
+    Graphics.push();
+    Graphics.translate(Math.floor((Graphics.width() / 2) - 40), 10);
+
+    TITLE.draw(-20, 0);
+    Graphics.pop();
+    Graphics.button("Move", 70, GREY, 70);
+    Graphics.center("Arrow Keys", 82);
+    Graphics.button("Switch", 90, GREY, 70);
+    Graphics.center("Space", 102);
+
+    Graphics.center("Collect The", 124);
+    Graphics.center("Mirror Gems", 130);
+
+    SPRITES.draw(30, 124, 11);
+    SPRITES.draw(116, 124, 11);
+    Graphics.button("press space to start", 140, GREEN, 140);
   }
 
   drawGame(): void {
@@ -317,6 +513,7 @@ export default class MirrorGame extends Game {
           if (row === Math.floor((this.mirrorPlayer.y + 4) / 8)) {
             drawnMirrorPlayer = true;
 
+            Graphics.setAlpha(this.fadeAlpha);
             if (this.flipped) {
               Graphics.push();
               Graphics.scale(-1, 1);
@@ -325,6 +522,7 @@ export default class MirrorGame extends Game {
             } else {
               SPRITES.draw(this.mirrorPlayer.x, this.mirrorPlayer.y - 4, (this.facingDown ? 30 : 20) + frame);
             }
+            Graphics.setAlpha(1);
           }
         }
       }
@@ -343,6 +541,8 @@ export default class MirrorGame extends Game {
         if (layer === FLOOR) {
           if (row === Math.floor((this.player.y + 4) / 8)) {
             drawnPlayer = true;
+
+            Graphics.setAlpha(this.fadeAlpha);
             if (this.flipped) {
               Graphics.push();
               Graphics.scale(-1, 1);
@@ -351,6 +551,7 @@ export default class MirrorGame extends Game {
             } else {
               SPRITES.draw(this.player.x, this.player.y - 4, (this.facingDown ? 20 : 30) + frame);
             }
+            Graphics.setAlpha(1);
           }
         }
       }
@@ -365,12 +566,18 @@ export default class MirrorGame extends Game {
     Graphics.pop();
 
     if (this.dead) {
-      Graphics.fillRect(0, (Graphics.height() / 2) - 4, Graphics.width(), 7, SHADE);
-      Graphics.center("YOU DIED", (Graphics.height() / 2) - 3);
+      Graphics.fillRect(0, (Graphics.height() / 2) - 14, Graphics.width(), 17, RED_SHADE);
+      Graphics.button("OH NO!", (Graphics.height() / 2) - 14, "rgba(0,0,0,0)");
+      Graphics.center(this.death, (Graphics.height() / 2) - 4);
     }
     if (this.win) {
-      Graphics.fillRect(0, (Graphics.height() / 2) - 4, Graphics.width(), 7, SHADE);
-      Graphics.center("YOU GOT THE MIRROR GEM!", (Graphics.height() / 2) - 3);
+      Graphics.fillRect(0, (Graphics.height() / 2) - 14, Graphics.width(), 17, GREEN_SHADE);
+      Graphics.button("WELL DONE", (Graphics.height() / 2) - 14, "rgba(0,0,0,0)");
+      Graphics.center("YOU GOT THE MIRROR GEM!", (Graphics.height() / 2) - 4);
+    }
+    if (this.levelStarting > 0) {
+      Graphics.fillRect(0, (Graphics.height() / 2) - 12, Graphics.width(), 15, SHADE);
+      Graphics.button(LEVELS[this.currentLevel].name, (Graphics.height() / 2) - 10, "rgba(0,0,0,0)");
     }
   }
 
@@ -385,8 +592,14 @@ export default class MirrorGame extends Game {
         this.splashPage.update();
         this.splashPage.draw();
       } else {
-        this.updateGame();
-        this.drawGame();
+        if (this.atTitle) {
+          this.drawTitle();
+        } else if (this.atLevelSelect) {
+          this.drawLevelSelect();
+        } else {
+          this.updateGame();
+          this.drawGame();
+        }
       }
     } else {
       Graphics.ctx.fillStyle = "#fff";

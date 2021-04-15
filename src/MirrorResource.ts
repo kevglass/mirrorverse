@@ -6,6 +6,7 @@ import ZipResource from "./sleek/resources/ZipResource";
 
 export let SPRITES: TileSet;
 export let MIRROR: ImageResource;
+export let TITLE: ImageResource;
 export let CC_LOGO: ImageResource;
 
 Resources.onZipLoadingComplete = (zip: ZipResource) => {
@@ -14,5 +15,6 @@ Resources.onZipLoadingComplete = (zip: ZipResource) => {
                     
   SPRITES = new TileSet(zip.getPng("img/sprites.png"), 12);
   MIRROR = zip.getPng("img/mirror.png");
+  TITLE = zip.getPng("img/title.png");
   CC_LOGO = zip.getPng("img/cc.png");
 };
