@@ -25,6 +25,7 @@ class LevelData {
 }
 
 const LEVELS: LevelData[] = [
+  { file: "easy", name: "SWITCHOROO" },
   { file: "level1", name: "SPIKEY FALLS" }
 ];
 
