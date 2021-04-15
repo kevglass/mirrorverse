@@ -1,0 +1,4 @@
+- You can float in the mirror verse but die if falling in the real universe
+- Is it tile based movement or fluid?
+- Can you push blocks around?
+

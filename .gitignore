@@ -1,0 +1,8 @@
+node_modules
+dist/sw.js
+dist/bundle*
+dist/game.dat
+dist/version
+dist/index.html
+dist/manifest.webmanifest
+dist.zip

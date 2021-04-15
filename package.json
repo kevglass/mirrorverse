@@ -1,0 +1,30 @@
+{
+  "name": "mirrorverse",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+ 	"build": "webpack --watch",
+	"release": "webpack"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kevglass/mirrorverse.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/kevglass/mirrorverse/issues"
+  },
+  "homepage": "https://github.com/kevglass/mirrorverse#readme",
+  "dependencies": {
+    "@types/jszip": "^3.4.1",
+    "extra-watch-webpack-plugin": "^1.0.3",
+    "file-loader": "^6.2.0",
+    "jszip": "^3.6.0",
+    "ts-loader": "^8.1.0",
+    "typescript": "^4.2.4",
+    "webpack": "^5.33.2",
+    "webpack-cli": "^4.6.0"
+  }
+}

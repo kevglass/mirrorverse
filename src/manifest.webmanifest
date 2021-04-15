@@ -1,0 +1,17 @@
+{
+  "short_name": "Sleek",
+  "name": "Sleek Test Game",
+  "description": "Sleek Test Game",
+  "icons": [
+    {
+      "src": "icon512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/index.html",
+  "background_color": "#000000",
+  "display": "fullscreen",
+  "scope": "/",
+  "theme_color": "#000000"
+}
