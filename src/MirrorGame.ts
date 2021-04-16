@@ -15,10 +15,14 @@ const TOPS: number = 2;
 
 const FRAMES: number[] = [0, 1, 0, 2];
 const COLLECT: number[] = [12];
+const FALL_THROUGH: number[] = [0, 6, 16, 26];
 
 const BOX: number = 24;
 const GEM: number = 12;
 const SPIKES: number = 4;
+const BLUE_SWITCH: number = 5;
+const RED_SWITCH: number = 15;
+const GREEN_SWITCH: number = 25;
 
 class LevelData {
   file: string;
@@ -27,7 +31,9 @@ class LevelData {
 
 const LEVELS: LevelData[] = [
   { file: "easy", name: "SWITCHOROO" },
-  { file: "level1", name: "SPIKEY FALLS" }
+  { file: "level1", name: "SPIKEY FALLS" },
+  { file: "level2", name: "TROUBLED WATERS" },
+  { file: "level3", name: "BLUE HERRING" }
 ];
 
 const dev: boolean = false; //location.href.indexOf("localhost") >= 0;
@@ -194,9 +200,11 @@ export default class MirrorGame extends Game {
       let mx: number = Math.floor(this.mirrorPlayer.x / 10);
       let my: number = Math.floor(this.mirrorPlayer.y / 8);
       
+      this.updateSwitches();
+
       if ((this.level.get(OBJECTS, px, py) !== 0) || (this.level.get(OBJECTS, mx, my) !== 0)) {
         this.switch();
-      } else if ((this.level.get(FLOOR, px, py) === 0) || (this.level.get(FLOOR, mx, my) === 0)) {
+      } else if ((this.fallAt(px, py)) || (this.fallAt(mx, my))) {
         this.switch();
       }
     }
@@ -252,6 +260,83 @@ export default class MirrorGame extends Game {
     this.deadTimer = 0;
   }
 
+  isAt(pos: Pos, x: number, y: number): boolean {
+    const xp: number = Math.floor(pos.x / 10);
+    const yp: number = Math.floor((pos.y + 4) / 8);
+
+    return (x === xp) && (y === yp);
+  }
+
+  updateSwitches(): void {
+    let blueOn: boolean = false;
+    let redOn: boolean = false;
+    let greenOn: boolean = false;
+
+    for (let x: number = 0; x < this.level.width; x++) {
+      for (let y: number = 0; y < this.level.height; y++) {
+        const floor: number = this.level.get(FLOOR, x, y);
+        const obj: number = this.level.get(OBJECTS, x, y);
+        if (floor === BLUE_SWITCH) {
+          if (this.isAt(this.player, x, y)) {
+            blueOn = true;
+          }
+          if (this.isAt(this.mirrorPlayer, x, y)) {
+            blueOn = true;
+          }
+          if (obj !== 0) {
+            blueOn = true;
+          }
+        }
+        if (floor === RED_SWITCH) {
+          if (this.isAt(this.player, x, y)) {
+            redOn = true;
+          }
+          if (this.isAt(this.mirrorPlayer, x, y)) {
+            redOn = true;
+          }
+          if (obj !== 0) {
+            redOn = true;
+          }
+        }
+        if (floor === GREEN_SWITCH) {
+          if (this.isAt(this.player, x, y)) {
+            greenOn = true;
+          }
+          if (this.isAt(this.mirrorPlayer, x, y)) {
+            greenOn = true;
+          }
+          if (obj !== 0) {
+            greenOn = true;
+          }
+        }
+      }
+    }
+
+
+    for (let x: number = 0; x < this.level.width; x++) {
+      for (let y: number = 0; y < this.level.height; y++) {
+        const floor: number = this.level.get(FLOOR, x, y);
+        if ((floor == BLUE_SWITCH + 1) && (blueOn)) {
+          this.level.set(FLOOR, x, y, BLUE_SWITCH + 2);
+        }
+        if ((floor == RED_SWITCH + 1) && (redOn)) {
+          this.level.set(FLOOR, x, y, RED_SWITCH + 2);
+        }
+        if ((floor == GREEN_SWITCH + 1) && (greenOn)) {
+          this.level.set(FLOOR, x, y, GREEN_SWITCH + 2);
+        }
+        if ((floor == BLUE_SWITCH + 2) && (!blueOn)) {
+          this.level.set(FLOOR, x, y, BLUE_SWITCH + 1);
+        }
+        if ((floor == RED_SWITCH + 2) && (!redOn)) {
+          this.level.set(FLOOR, x, y, RED_SWITCH + 1);
+        }
+        if ((floor == GREEN_SWITCH + 2) && (!greenOn)) {
+          this.level.set(FLOOR, x, y, GREEN_SWITCH + 1);
+        }
+      }
+    }
+  }
   updateGame(): void {
     this.moving = false;
 
@@ -311,6 +396,8 @@ export default class MirrorGame extends Game {
       } else if (this.right) {
         STEP_SOUND.play();
         this.rightMove = 10;
+      } else {
+        this.updateSwitches();
       }
     }
     
@@ -398,6 +485,7 @@ export default class MirrorGame extends Game {
     for (let x=4;x<9;x++) {
       for (let y=4;y<7;y++) {
         this.activate(Math.floor((this.player.x+x) / 10), Math.floor((this.player.y+y) / 8));
+        this.activate(Math.floor((this.mirrorPlayer.x+x) / 10), Math.floor((this.mirrorPlayer.y+y) / 8));
       }
     }
   }
@@ -426,6 +514,12 @@ export default class MirrorGame extends Game {
     }
   }
 
+  fallAt(x: number, y: number): boolean {
+    const floor: number = this.level.get(FLOOR, x, y);
+
+    return FALL_THROUGH.indexOf(floor) >= 0;
+  }
+
   boxCanMoveTo(x: number, y: number): boolean {
     if ((x < 0) || (y < 0) || (x >= this.level.width) || (y >= this.level.height)) {
       return false;
@@ -445,7 +539,7 @@ export default class MirrorGame extends Game {
     if ((x < 0) || (y < 0) || (x >= this.level.width) || (y >= this.level.height)) {
       return true;
     }
-    if (this.level.get(FLOOR, x, y) === 0) {
+    if (this.fallAt(x, y)) {
       return true;
     }
 
@@ -459,7 +553,6 @@ export default class MirrorGame extends Game {
       let my: number = Math.floor(this.mirrorPlayer.y / 8);
 
       if (y < 10) {
-        dx = -dx;
         dy = -dy;
       }
       // push it through the mirror
