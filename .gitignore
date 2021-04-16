@@ -6,3 +6,4 @@ dist/version
 dist/index.html
 dist/manifest.webmanifest
 dist.zip
+.DS_Store

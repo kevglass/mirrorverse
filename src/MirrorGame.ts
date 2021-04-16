@@ -2,9 +2,10 @@ import Game from "./sleek/Game";
 import Graphics, { WHITE, BLACK, GREEN, SHADE, GREY } from "./sleek/Graphics";
 import { ZIP } from "./sleek/resources/Resources";
 import SplashPage from "./SplashPage";
-import { CC_LOGO, MIRROR, SPRITES, TITLE } from "./MirrorResource";
+import { CC_LOGO, CLICK_SOUND, DIE_SOUND, FAIL_SOUND, MIRROR, MUSIC, SLIDE_SOUND, SPRITES, STEP_SOUND, SWITCH_SOUND, TITLE, WIN_SOUND } from "./MirrorResource";
 import TiledMap from "./sleek/tiled/TiledMap";
 import { DOWN_KEY, ENTER_KEY, ESCAPE_KEY, LEFT_KEY, RIGHT_KEY, SPACE_KEY, UP_KEY } from "./sleek/util/Keys";
+import Settings from "./sleek/Settings";
 
 const SKY: string = "#48979c";
 
@@ -89,6 +90,8 @@ export default class MirrorGame extends Game {
   
   constructor() {
     super();
+
+    console.log(Settings.isSoundOn());
   }
 
   keyUp(key: string): void {
@@ -114,6 +117,7 @@ export default class MirrorGame extends Game {
         if (key === SPACE_KEY) {
           this.atTitle = false;
           this.atLevelSelect = true;
+          CLICK_SOUND.play();
         }
       } else if (this.atLevelSelect) {
         if (key === UP_KEY) {
@@ -121,24 +125,29 @@ export default class MirrorGame extends Game {
           if (this.currentLevel < 0) {
             this.currentLevel = LEVELS.length - 1;
           }
+          SLIDE_SOUND.play();
         }
         if (key === DOWN_KEY) {
           this.currentLevel++;
           if (this.currentLevel >= LEVELS.length) {
             this.currentLevel = 0;
           }
+          SLIDE_SOUND.play();
         }
         if ((key === SPACE_KEY) || (key === ENTER_KEY)) {
           this.loadLevel();
           this.levelStarting = 60;
           this.atLevelSelect = false;
+          CLICK_SOUND.play();
         }
         if (key === ESCAPE_KEY) {
           this.atTitle = true;
+          FAIL_SOUND.play();
         }
       } else {
         if (key === ESCAPE_KEY) {
           this.atTitle = true;
+          FAIL_SOUND.play();
         }
         if (key === SPACE_KEY) {
           if ((this.upMove === 0) && (this.downMove === 0) && (this.leftMove === 0) && (this.rightMove === 0)) {
@@ -166,6 +175,8 @@ export default class MirrorGame extends Game {
   }
 
   switch(): void {
+    SWITCH_SOUND.play();
+
     this.fadeMid = () => {
       const px: number = this.player.x;
       const py: number = this.player.y;
@@ -198,6 +209,8 @@ export default class MirrorGame extends Game {
     })
     this.atSplashPage = true;
 
+
+    MUSIC.play(0.5);
     this.loadLevel();
   }
 
@@ -231,6 +244,7 @@ export default class MirrorGame extends Game {
   }
 
   die(reason: string): void {
+    DIE_SOUND.play();
     this.death = reason;
     this.dead = true;
     this.deadTimer = 0;
@@ -284,12 +298,16 @@ export default class MirrorGame extends Game {
     }
     if ((this.upMove === 0) && (this.downMove === 0) && (this.leftMove === 0) && (this.rightMove === 0)) {
       if (this.down) {
+        STEP_SOUND.play();
         this.downMove = 8;
       } else if (this.up) {
+        STEP_SOUND.play();
         this.upMove = 8;
       } else if (this.left) {
+        STEP_SOUND.play();
         this.leftMove = 10;
       } else if (this.right) {
+        STEP_SOUND.play();
         this.rightMove = 10;
       }
     }
@@ -399,6 +417,7 @@ export default class MirrorGame extends Game {
   collect(obj: number): void {
     if (obj === GEM) {
       // got the gem
+      WIN_SOUND.play();
       this.win = true;
       this.winTimer = 0;
       localStorage.setItem("complete." + LEVELS[this.currentLevel].file, "true");
@@ -487,7 +506,26 @@ export default class MirrorGame extends Game {
     Graphics.button("ESC = Rage Quit", 140, GREY, 140);
   }
 
+  mouseDown(x: number, y: number): void {
+    if (y < 20) {
+      x = Math.floor((x - (Graphics.width() - 48)) / 24);
+      if (x === 0) {
+        Settings.setSoundsOn(!Settings.isSoundOn());
+        CLICK_SOUND.play();
+      }
+      if (x === 1) {
+        Settings.setMusicOn(!Settings.isMusicOn());
+        CLICK_SOUND.play();
+      }
+    }
+  }
+
   drawTitle(): void {
+    SPRITES.draw(Graphics.width() - 48, 2, 8);
+    SPRITES.draw(Graphics.width() - 36, 2, Settings.isSoundOn() ? 19 : 18);
+    SPRITES.draw(Graphics.width() - 24, 2, 9);
+    SPRITES.draw(Graphics.width() - 12, 2, Settings.isMusicOn() ? 19 : 18);
+
     Graphics.push();
     Graphics.translate(Math.floor((Graphics.width() / 2) - 40), 10);
 
