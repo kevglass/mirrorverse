@@ -133,6 +133,9 @@ export default class MirrorGame extends Game {
           this.levelStarting = 60;
           this.atLevelSelect = false;
         }
+        if (key === ESCAPE_KEY) {
+          this.atTitle = true;
+        }
       } else {
         if (key === ESCAPE_KEY) {
           this.atTitle = true;
@@ -263,7 +266,6 @@ export default class MirrorGame extends Game {
     if (this.dead) {
       this.deadTimer++;
       if (this.deadTimer > 150) {
-        this.atTitle = true;
         this.loadLevel();
       }
       return;
@@ -271,7 +273,11 @@ export default class MirrorGame extends Game {
     if (this.win) {
       this.winTimer++;
       if (this.winTimer > 180) {
-        this.atTitle = true;
+        this.currentLevel++;
+        if (this.currentLevel >= LEVELS.length) {
+          this.atTitle = true;
+          this.currentLevel = 0;
+        }
         this.loadLevel();
       }
       return;
@@ -478,6 +484,7 @@ export default class MirrorGame extends Game {
       }
       i++;
     }
+    Graphics.button("ESC = Rage Quit", 140, GREY, 140);
   }
 
   drawTitle(): void {
