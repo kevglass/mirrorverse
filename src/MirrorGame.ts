@@ -196,6 +196,8 @@ export default class MirrorGame extends Game {
       
       if ((this.level.get(OBJECTS, px, py) !== 0) || (this.level.get(OBJECTS, mx, my) !== 0)) {
         this.switch();
+      } else if ((this.level.get(FLOOR, px, py) === 0) || (this.level.get(FLOOR, mx, my) === 0)) {
+        this.switch();
       }
     }
     this.fadeOut = true;
