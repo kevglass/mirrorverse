@@ -3,9 +3,10 @@ import Graphics, { WHITE, BLACK, GREEN, SHADE, GREY } from "./sleek/Graphics";
 import { ZIP } from "./sleek/resources/Resources";
 import SplashPage from "./SplashPage";
 import { CC_LOGO, CLICK_SOUND, DIE_SOUND, FAIL_SOUND, MIRROR, MUSIC, SLIDE_SOUND, SPRITES, STEP_SOUND, SWITCH_SOUND, TITLE, WIN_SOUND } from "./MirrorResource";
-import TiledMap from "./sleek/tiled/TiledMap";
+import TiledMap, { TiledMapLayer } from "./sleek/tiled/TiledMap";
 import { DOWN_KEY, ENTER_KEY, ESCAPE_KEY, LEFT_KEY, RIGHT_KEY, SPACE_KEY, UP_KEY } from "./sleek/util/Keys";
 import Settings from "./sleek/Settings";
+import { allowedNodeEnvironmentFlags } from "node:process";
 
 const SKY: string = "#48979c";
 
@@ -33,7 +34,9 @@ const LEVELS: LevelData[] = [
   { file: "easy", name: "SWITCHOROO" },
   { file: "level1", name: "SPIKEY FALLS" },
   { file: "level2", name: "TROUBLED WATERS" },
-  { file: "level3", name: "BLUE HERRING" }
+  { file: "level3", name: "BLUE HERRING" },
+  { file: "level4", name: "AMAZING" },
+  { file: null, name: "CUSTOM LEVEL" }
 ];
 
 const dev: boolean = false; //location.href.indexOf("localhost") >= 0;
@@ -97,7 +100,20 @@ export default class MirrorGame extends Game {
   constructor() {
     super();
 
-    console.log(Settings.isSoundOn());
+    document.getElementById("fileupload").addEventListener("change", () => {
+      const selectedFile = (<HTMLInputElement> document.getElementById('fileupload')).files[0];
+      if (selectedFile) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (this.loadLevelFromText(<string> reader.result)) {
+            this.levelStarting = 60;
+            this.atLevelSelect = false;
+            console.log("Loaded Successfully");
+          }
+        }
+        reader.readAsText(selectedFile);
+      }
+    }, false);
   }
 
   keyUp(key: string): void {
@@ -141,9 +157,14 @@ export default class MirrorGame extends Game {
           SLIDE_SOUND.play();
         }
         if ((key === SPACE_KEY) || (key === ENTER_KEY)) {
-          this.loadLevel();
-          this.levelStarting = 60;
-          this.atLevelSelect = false;
+          if (LEVELS[this.currentLevel].file === null) {
+            (<HTMLInputElement> document.getElementById("fileupload")).value = null;
+            document.getElementById("fileupload").click();
+          } else {
+            this.loadLevel();
+            this.levelStarting = 60;
+            this.atLevelSelect = false;
+          }
           CLICK_SOUND.play();
         }
         if (key === ESCAPE_KEY) {
@@ -226,9 +247,118 @@ export default class MirrorGame extends Game {
 
   loadLevel(): void {
     const name: string = dev ? "test" : LEVELS[this.currentLevel].file;
+    if (!name) {
+      this.atTitle = true;
+      return;
+    }
     const mapData: any = JSON.parse(JSON.stringify(ZIP.getJson("maps/" + name + ".json")));
     this.level = new TiledMap(mapData);
+  
+    this.postProcessLevel();
+  }
 
+  loadLevelFromText(text: string): boolean {
+    this.level = new TiledMap(null);
+
+    const floorData: number[] = [];
+    const objData: number[] = [];
+    const topData: number[] = [];
+
+    for (let y=0;y<19;y++) {
+      for (let x=0;x<8;x++) {
+        floorData.push(0);
+        objData.push(0);
+        topData.push(0);
+      }
+    }
+    const lines: string[] = text.split("\n");
+    if (lines.length != 17) {
+      alert("Format Error: Wrong number of lines - should be 17: " + lines.length);
+      return false;
+    }
+    for (let y=0;y<lines.length;y++) {
+      const line: string = lines[y];
+      if (y === 8) {
+        continue;
+      }
+      if (line.length != 8) {
+        alert("Format Error: One of the lines isn't 8 characters");
+        return false;
+      }
+
+      for (let x=0;x<line.length;x++) {
+        const c: string = line.substring(x, x+1);
+        const ty: number = y + 2;
+        const target: number = x + (ty * 8);
+        let floorRequired: boolean = false;
+
+        if (c === "0") {
+          floorRequired = true;
+        }
+        if (c === "S") {
+          objData[target] = 21;
+          floorRequired = true;
+        }
+        if (c === "M") {
+          objData[target] = 12;
+          floorRequired = true;
+        }
+        if (c === "P") {
+          objData[target] = 13;
+          topData[target - 8] = 3;
+          floorRequired = true;
+        }
+        if (c === "s") {
+          floorData[target] = 4;
+        }
+        if (c === "X") {
+          objData[target] = 24;
+          floorRequired = true;
+        }
+        if (c === "B") {
+          floorData[target] = 5;
+        }
+        if (c === "b") {
+          floorData[target] = 6;
+        }
+        if (c === "R") {
+          floorData[target] = 15;
+        }
+        if (c === "r") {
+          floorData[target] = 16;
+        }
+        if (c === "G") {
+          floorData[target] = 25;
+        }
+        if (c === "g") {
+          floorData[target] = 26;
+        }
+
+        if (floorRequired) {
+          const tile: number = 1 + ((x + y) % 2);
+          floorData[target] = tile;
+        }
+      }
+    }
+    const floor: TiledMapLayer = new TiledMapLayer("floor", 8, 19, floorData);
+    const objects: TiledMapLayer = new TiledMapLayer("floor", 8, 19, objData);
+    const tops: TiledMapLayer = new TiledMapLayer("floor", 8, 19, topData);
+    this.level.addLayer(floor);
+    this.level.addLayer(objects);
+    this.level.addLayer(tops);
+    this.level.width = 8;
+    this.level.height = 19;
+    this.level.tileWidth = 10;
+    this.level.tileHeight = 10;
+    
+    this.postProcessLevel();
+
+    console.log("COMPLETE CUSTOME LEVEL LOAD");
+
+    return true;
+  }
+
+  private postProcessLevel(): void {
     for (let x = 0; x < this.level.width; x++) {
       for (let y = 0; y < this.level.height; y++) {
         if (this.level.get(OBJECTS, x, y) === 21) {
@@ -531,6 +661,15 @@ export default class MirrorGame extends Game {
     if (floor === SPIKES) {
       return false;
     } 
+    if (floor === 6) {
+      return false;
+    } 
+    if (floor === 16) {
+      return false;
+    } 
+    if (floor === 26) {
+      return false;
+    } 
 
     return true;
   }
@@ -718,7 +857,7 @@ export default class MirrorGame extends Game {
     }
     if (this.levelStarting > 0) {
       Graphics.fillRect(0, (Graphics.height() / 2) - 12, Graphics.width(), 15, SHADE);
-      Graphics.button(LEVELS[this.currentLevel].name, (Graphics.height() / 2) - 10, "rgba(0,0,0,0)");
+      Graphics.button(LEVELS[this.currentLevel].name === null ? "Custom Level" : LEVELS[this.currentLevel].name, (Graphics.height() / 2) - 10, "rgba(0,0,0,0)");
     }
   }
 
