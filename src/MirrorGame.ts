@@ -7,6 +7,7 @@ import TiledMap, { TiledMapLayer } from "./sleek/tiled/TiledMap";
 import { DOWN_KEY, ENTER_KEY, ESCAPE_KEY, LEFT_KEY, RIGHT_KEY, SPACE_KEY, UP_KEY } from "./sleek/util/Keys";
 import Settings from "./sleek/Settings";
 import { allowedNodeEnvironmentFlags } from "node:process";
+import { TiledMapRenderer } from "./sleek/tiled/TiledMapRenderer";
 
 const SKY: string = "#48979c";
 
@@ -61,6 +62,7 @@ export default class MirrorGame extends Game {
   splashPage: SplashPage;
   atTitle: boolean = true;
   level: TiledMap;
+  renderer: TiledMapRenderer;
 
   player: Pos;
   mirrorPlayer: Pos;
@@ -177,8 +179,10 @@ export default class MirrorGame extends Game {
           FAIL_SOUND.play();
         }
         if (key === SPACE_KEY) {
-          if ((this.upMove === 0) && (this.downMove === 0) && (this.leftMove === 0) && (this.rightMove === 0)) {
-            this.switch();
+          if ((!this.dead) && (!this.win)) {
+            if ((this.upMove === 0) && (this.downMove === 0) && (this.leftMove === 0) && (this.rightMove === 0)) {
+              this.switch();
+            }
           }
         }
         if (key === UP_KEY) {
@@ -253,12 +257,14 @@ export default class MirrorGame extends Game {
     }
     const mapData: any = JSON.parse(JSON.stringify(ZIP.getJson("maps/" + name + ".json")));
     this.level = new TiledMap(mapData);
-  
+    this.renderer = new TiledMapRenderer(this.level);
+
     this.postProcessLevel();
   }
 
   loadLevelFromText(text: string): boolean {
     this.level = new TiledMap(null);
+    this.renderer = new TiledMapRenderer(this.level);
 
     const floorData: number[] = [];
     const objData: number[] = [];
@@ -466,7 +472,19 @@ export default class MirrorGame extends Game {
         }
       }
     }
+
+    const px: number = Math.floor(this.player.x / 10);
+    const py: number = Math.floor((this.player.y + 4) / 8);
+    const mx: number = Math.floor(this.mirrorPlayer.x  / 10);
+    const my: number = Math.floor((this.mirrorPlayer.y + 4) / 8);
+    if (FALL_THROUGH.indexOf(this.level.get(FLOOR, px, py)) >= 0) {
+      this.die("You fell off the world");
+    }
+    if (FALL_THROUGH.indexOf(this.level.get(FLOOR, mx, my)) >= 0) {
+      this.die("You fell off the world");
+    }
   }
+
   updateGame(): void {
     this.moving = false;
 
@@ -787,7 +805,7 @@ export default class MirrorGame extends Game {
     Graphics.push();
     Graphics.translate(Math.floor((Graphics.width() / 2) - 40), 0);
     let drawnMirrorPlayer: boolean = false;
-    this.level.drawRows(SPRITES, 0, 0, 0, -2, 0, 1, 8, 9, (row: number, layer: number) => {
+    this.renderer.drawRows(SPRITES, 0, 0, 0, -2, 0, 1, 8, 9, (row: number, layer: number) => {
       if (!drawnMirrorPlayer && !this.dead) {
         if (layer === FLOOR) {
           if (row === Math.floor((this.mirrorPlayer.y + 4) / 8)) {
@@ -816,7 +834,7 @@ export default class MirrorGame extends Game {
 
     MIRROR.draw(-20, 0);
     let drawnPlayer: boolean = false;
-    this.level.drawRows(SPRITES, 0, 0, 0, -2, 0, 10, 8, 9, (row: number, layer: number) => {
+    this.renderer.drawRows(SPRITES, 0, 0, 0, -2, 0, 10, 8, 9, (row: number, layer: number) => {
       if (!drawnPlayer && !this.dead) {
         if (layer === FLOOR) {
           if (row === Math.floor((this.player.y + 4) / 8)) {
